@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import PaymentForm from '../Components/PaymentForm';
-import { FaParking, FaClock, FaRupeeSign, FaMapMarkerAlt, FaCar, FaShieldAlt } from 'react-icons/fa';
+import { FaParking, FaClock, FaRupeeSign, FaMapMarkerAlt, FaCar } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { bookSlot, makePayment } from '../services/api';
+
+const PRICING = { 1: 50, 2: 90, 4: 160, 8: 280, 24: 500 };
 
 const Payment = () => {
-  const [slot, setSlot]       = useState(null);
+  const [slot, setSlot] = useState(null);
   const [booking, setBooking] = useState(null);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const s = localStorage.getItem('parkeasy_selected_slot');
@@ -13,15 +19,43 @@ const Payment = () => {
     if (b) setBooking(JSON.parse(b));
   }, []);
 
-  const duration   = booking?.duration || 1;
-  const pricePerHr = slot?.price || 40;
-  const totalPrice = duration * pricePerHr;
+  const duration = booking?.duration || 1;
+  const totalPrice = PRICING[duration] || booking?.totalAmount || 0;
+
+  const handlePaymentSuccess = async () => {
+    if (!booking || !slot) return;
+
+    try {
+      setError('');
+      const durationHours = parseInt(booking.duration || 1, 10);
+      const checkin_time = `${booking.date}T${booking.time || '00:00'}:00.000Z`;
+
+      const bookingRes = await bookSlot({
+        slot_number: slot.slot_number || slot.id,
+        vehicle_number: booking.vehicleNumber,
+        vehicle_type: 'Car',
+        checkin_time,
+        duration: durationHours,
+      });
+
+      await makePayment({
+        booking_id: bookingRes.booking_id,
+        amount: bookingRes.amount,
+        method: 'card',
+        status: 'success',
+      });
+
+      navigate('/bookings');
+    } catch (err) {
+      setError(err.message || 'Failed to confirm booking/payment');
+    }
+  };
 
   const rows = [
-    { Icon: FaParking,      bg: 'bg-violet-100',  color: 'text-violet-600', label: 'Slot Number', value: slot?.slotId || 'P-001' },
-    { Icon: FaMapMarkerAlt, bg: 'bg-blue-100',    color: 'text-blue-600',   label: 'Location',    value: booking?.location || 'Downtown Parking Hub' },
-    { Icon: FaClock,        bg: 'bg-indigo-100',  color: 'text-indigo-600', label: 'Duration',    value: `${duration} hour${duration > 1 ? 's' : ''}` },
-    { Icon: FaRupeeSign,    bg: 'bg-emerald-100', color: 'text-emerald-600',label: 'Rate',        value: `₹${pricePerHr} / hour` },
+    { Icon: FaParking, bg: 'bg-violet-100', color: 'text-violet-600', label: 'Slot Number', value: slot?.slotId || 'P-001' },
+    { Icon: FaMapMarkerAlt, bg: 'bg-blue-100', color: 'text-blue-600', label: 'Location', value: booking?.location || 'Downtown Parking Hub' },
+    { Icon: FaClock, bg: 'bg-indigo-100', color: 'text-indigo-600', label: 'Duration', value: `${duration} hour${duration > 1 ? 's' : ''}` },
+    { Icon: FaRupeeSign, bg: 'bg-emerald-100', color: 'text-emerald-600', label: 'Rate', value: `₹${PRICING[1]} / hour` },
   ];
 
   return (
@@ -43,6 +77,11 @@ const Payment = () => {
           {/* Summary */}
           <div className="lg:col-span-2 space-y-4">
             <div className="card-static p-6">
+              {error && (
+                <div className="mb-3 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-[12px] text-red-600">
+                  {error}
+                </div>
+              )}
               <p className="text-[13px] font-bold text-gray-900 mb-5 pb-4 border-b border-gray-100">
                 📋 Booking Summary
               </p>
@@ -90,7 +129,7 @@ const Payment = () => {
 
           {/* Payment Form */}
           <div className="lg:col-span-3">
-            <PaymentForm booking={booking} />
+            <PaymentForm booking={booking} onSuccess={handlePaymentSuccess} />
           </div>
         </div>
       </div>

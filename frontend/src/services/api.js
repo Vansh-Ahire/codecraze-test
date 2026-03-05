@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: 'http://127.0.0.1:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -24,27 +24,26 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    const apiMessage = error?.response?.data?.error || error?.response?.data?.message;
     const message =
-      error?.response?.data?.message || error.message || 'An error occurred';
+      apiMessage || error.message || 'An error occurred';
     return Promise.reject(new Error(message));
   }
 );
 
 // ── Slots ────────────────────────────────────────────────────────────────────
-export const getSlots = (params = {}) => API.get('/slots', { params });
+export const getSlots = () => API.get('/slots');
 
-export const getSlotById = (id) => API.get(`/slots/${id}`);
-
-export const checkAvailability = (data) => API.post('/slots/check', data);
+export const getSlotById = (slotNumber) => API.get(`/slots/${slotNumber}`);
 
 // ── Bookings ─────────────────────────────────────────────────────────────────
-export const bookSlot = (data) => API.post('/bookings', data);
+export const bookSlot = (data) => API.post('/bookings/create', data);
 
-export const getBookings = () => API.get('/bookings');
+export const getBookings = () => API.get('/bookings/my');
 
 export const getBookingById = (id) => API.get(`/bookings/${id}`);
 
-export const cancelBooking = (id) => API.delete(`/bookings/${id}`);
+export const cancelBooking = (bookingId) => API.post(`/bookings/cancel/${bookingId}`);
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 export const makePayment = (data) => API.post('/payments', data);
@@ -61,7 +60,20 @@ export const logoutUser = () => {
   localStorage.removeItem('parkeasy_user');
 };
 
-// ── Contact ───────────────────────────────────────────────────────────────────
+export const sendOtp = (email) => API.post('/auth/send-otp', { email });
+
+export const verifyOtp = (email, otp) => API.post('/auth/verify-otp', { email, otp });
+
+export const resendOtp = (email) => API.post('/auth/resend-otp', { email });
+
+// ── Admin ───────────────────────────────────────────────────────────────────
+export const getAdminStats = () => API.get('/admin/stats');
+export const getAdminBookings = () => API.get('/admin/bookings');
+export const getAdminUsers = () => API.get('/admin/users');
+export const adminCancelBooking = (id) => API.post(`/admin/bookings/cancel/${id}`);
+export const toggleSlotStatus = (num) => API.post(`/admin/slots/toggle/${num}`);
+export const exportAdminReport = () => API.get('/admin/export/excel', { responseType: 'blob' });
+
 export const sendContactMessage = (data) => API.post('/contact', data);
 
 export default API;

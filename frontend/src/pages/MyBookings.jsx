@@ -1,43 +1,59 @@
 import { useState, useEffect } from 'react';
 import StatsCard from '../Components/StatsCard';
-import { FaBookmark, FaCheckCircle, FaClock, FaCalendarAlt, FaMapMarkerAlt, FaLock } from 'react-icons/fa';
+import { FaBookmark, FaCheckCircle, FaClock, FaCalendarAlt, FaLock } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
-
-const MOCK_BOOKINGS = [
-  {
-    id: 'BK001', slotId: 'DT-003', location: 'Downtown Parking Hub',
-    date: '2026-03-05', time: '10:00', duration: 2, amount: 80,
-    status: 'active', vehicle: 'MH 12 AB 3456',
-  },
-  {
-    id: 'BK002', slotId: 'AP-017', location: 'Airport Terminal A',
-    date: '2026-03-03', time: '14:30', duration: 3, amount: 120,
-    status: 'completed', vehicle: 'MH 12 AB 3456',
-  },
-  {
-    id: 'BK003', slotId: 'ML-009', location: 'Mall Central Parking',
-    date: '2026-02-28', time: '18:00', duration: 1, amount: 40,
-    status: 'completed', vehicle: 'MH 12 AB 3456',
-  },
-];
+import { getBookings, cancelBooking } from '../services/api';
 
 const statusCfg = {
-  active:    { cls: 'status-active',    dot: 'bg-emerald-500', label: 'Active'    },
-  completed: { cls: 'status-completed', dot: 'bg-blue-500',    label: 'Completed' },
-  cancelled: { cls: 'status-cancelled', dot: 'bg-red-400',     label: 'Cancelled' },
+  active: { cls: 'status-active', dot: 'bg-emerald-500', label: 'Active' },
+  cancelled: { cls: 'status-cancelled', dot: 'bg-red-400', label: 'Cancelled' },
+  completed: { cls: 'status-completed', dot: 'bg-blue-500', label: 'Completed' },
 };
 
 const MyBookings = () => {
-  const [user, setUser]   = useState(null);
-  const [bookings]        = useState(MOCK_BOOKINGS);
+  const [user, setUser] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem('parkeasy_user');
-    if (stored) setUser(JSON.parse(stored));
+    if (stored) {
+      const u = JSON.parse(stored);
+      setUser(u);
+      (async () => {
+        try {
+          const data = await getBookings();
+          setBookings(data.bookings || []);
+        } catch (err) {
+          setError(err.message || 'Failed to load your bookings');
+        } finally {
+          setLoading(false);
+        }
+      })();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
-  const total     = bookings.length;
-  const active    = bookings.filter((b) => b.status === 'active').length;
+  const handleCancel = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to cancel this booking? Penalties may apply based on the check-in time.')) return;
+    try {
+      setLoading(true);
+      const res = await cancelBooking(bookingId);
+      alert(res.message || 'Booking cancelled successfully');
+      // Refresh
+      const data = await getBookings();
+      setBookings(data.bookings || []);
+    } catch (err) {
+      alert(err.message || 'Failed to cancel booking');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const total = bookings.length;
+  const active = bookings.filter((b) => b.status === 'active').length;
   const completed = bookings.filter((b) => b.status === 'completed').length;
 
   /* ── Not logged in ── */
@@ -70,6 +86,16 @@ const MyBookings = () => {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="page-bg pt-[60px] flex items-center justify-center min-h-screen">
+        <div className="card-static p-10 text-center max-w-sm w-full mx-4">
+          <p className="text-[14px] text-gray-500">Loading your bookings...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-bg pt-[60px]">
       <div className="max-w-5xl mx-auto px-5 sm:px-8 py-12">
@@ -87,9 +113,9 @@ const MyBookings = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
-          <StatsCard icon={<FaBookmark />}    label="Total Bookings"  value={total}     color="purple" />
-          <StatsCard icon={<FaClock />}       label="Active"          value={active}    color="green"  />
-          <StatsCard icon={<FaCheckCircle />} label="Completed"       value={completed} color="blue"   />
+          <StatsCard icon={<FaBookmark />} label="Total Bookings" value={total} color="purple" />
+          <StatsCard icon={<FaClock />} label="Active" value={active} color="green" />
+          <StatsCard icon={<FaCheckCircle />} label="Completed" value={completed} color="blue" />
         </div>
 
         {/* Bookings */}
@@ -100,14 +126,22 @@ const MyBookings = () => {
           </div>
 
           <div className="card-static overflow-hidden">
+            {error && (
+              <div className="px-6 py-4 border-b border-gray-100 text-[12px] text-red-600">
+                {error}
+              </div>
+            )}
             {bookings.map((b, i) => {
               const cfg = statusCfg[b.status] || statusCfg.completed;
+              const dt = b.checkin_time ? new Date(b.checkin_time) : (b.created_at ? new Date(b.created_at) : null);
+              const dateStr = dt ? dt.toISOString().split('T')[0] : '-';
+              const timeStr = dt ? dt.toTimeString().slice(0, 5) : '--:--';
+              const penalty = b.penalty || 0;
               return (
                 <div
-                  key={b.id}
-                  className={`px-6 py-5 row-hover animate-fade-up ${
-                    i < bookings.length - 1 ? 'border-b border-gray-100' : ''
-                  }`}
+                  key={b.booking_id}
+                  className={`px-6 py-5 row-hover animate-fade-up ${i < bookings.length - 1 ? 'border-b border-gray-100' : ''
+                    }`}
                   style={{ animationDelay: `${i * 0.08}s` }}
                 >
                   <div className="flex items-center justify-between gap-4">
@@ -123,22 +157,29 @@ const MyBookings = () => {
                       {/* Details */}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2.5 flex-wrap">
-                          <p className="font-semibold text-gray-900 text-[14px] truncate">{b.location}</p>
+                          <p className="font-semibold text-gray-900 text-[14px] truncate">
+                            Slot #{b.slot_number}
+                          </p>
                           <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.cls}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                             {cfg.label}
                           </span>
+                          {penalty > 0 && (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                              Penalty ₹{penalty}
+                            </span>
+                          )}
                         </div>
                         <p className="text-[12px] text-gray-400 mt-1">
-                          Slot{' '}
-                          <span className="text-violet-600 font-mono font-semibold">{b.slotId}</span>
-                          {' · '}
-                          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">{b.vehicle}</span>
+                          Vehicle{' '}
+                          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
+                            {b.vehicle_number}
+                          </span>
                         </p>
                         <div className="flex items-center gap-4 mt-1.5 text-[11px] text-gray-400">
                           <span className="flex items-center gap-1">
                             <FaCalendarAlt className="text-violet-400 text-[10px]" />
-                            {b.date} · {b.time}
+                            {dateStr} · {timeStr}
                           </span>
                           <span className="flex items-center gap-1">
                             <FaClock className="text-blue-400 text-[10px]" />
@@ -148,15 +189,30 @@ const MyBookings = () => {
                       </div>
                     </div>
 
-                    {/* Amount */}
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[22px] font-extrabold gradient-text tracking-tight leading-none">₹{b.amount}</p>
-                      <p className="text-[10px] text-gray-400 font-mono mt-1">#{b.id}</p>
+                    {/* Amount & Actions */}
+                    <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
+                      <div>
+                        <p className="text-[22px] font-extrabold gradient-text tracking-tight leading-none">₹{b.amount}</p>
+                        <p className="text-[10px] text-gray-400 font-mono mt-1">#{b.booking_id}</p>
+                      </div>
+                      {b.status === 'active' && (
+                        <button
+                          onClick={() => handleCancel(b.booking_id)}
+                          className="px-3 py-1 rounded-lg border border-red-200 text-red-500 text-[11px] font-bold hover:bg-red-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               );
             })}
+            {bookings.length === 0 && !error && (
+              <div className="px-6 py-8 text-center text-[13px] text-gray-500">
+                You don't have any bookings yet.
+              </div>
+            )}
           </div>
         </div>
       </div>

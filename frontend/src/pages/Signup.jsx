@@ -4,6 +4,8 @@ import {
   FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash,
   FaCheckCircle, FaCar,
 } from 'react-icons/fa';
+import { registerUser, loginUser, sendOtp, verifyOtp, resendOtp } from '../services/api';
+import OtpModal from '../Components/OtpModal';
 
 const perks = [
   { icon: '🚗', text: 'Book parking slots in seconds' },
@@ -17,11 +19,12 @@ const Signup = () => {
   const [form, setForm] = useState({
     name: '', email: '', password: '', confirm: '',
   });
-  const [showPass, setShowPass]       = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState('');
-  const [success, setSuccess]         = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [otpModal, setOtpModal] = useState({ show: false, email: '', loading: false, error: '' });
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -29,10 +32,10 @@ const Signup = () => {
     const p = form.password;
     if (!p) return 0;
     let score = 0;
-    if (p.length >= 8)               score++;
-    if (/[A-Z]/.test(p))             score++;
-    if (/[0-9]/.test(p))             score++;
-    if (/[^A-Za-z0-9]/.test(p))     score++;
+    if (p.length >= 8) score++;
+    if (/[A-Z]/.test(p)) score++;
+    if (/[0-9]/.test(p)) score++;
+    if (/[^A-Za-z0-9]/.test(p)) score++;
     return score; // 0-4
   };
 
@@ -53,17 +56,64 @@ const Signup = () => {
     }
     setLoading(true);
     try {
-      await new Promise((res) => setTimeout(res, 1600));
-      localStorage.setItem(
-        'parkeasy_user',
-        JSON.stringify({ email: form.email, name: form.name }),
-      );
-      setSuccess(true);
-      setTimeout(() => navigate('/'), 1400);
-    } catch {
-      setError('Something went wrong. Please try again.');
+      await registerUser({
+        username: form.email,
+        email: form.email,
+        name: form.name,
+        password: form.password,
+      });
+
+      // Send initial OTP
+      await sendOtp(form.email);
+      setOtpModal({ show: true, email: form.email, loading: false, error: '' });
+
+    } catch (err) {
+      if (err.message.includes('Account not verified')) {
+        // If already registered but not verified, show OTP modal
+        setOtpModal({ show: true, email: form.email, loading: false, error: '' });
+      } else {
+        setError(err.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (code) => {
+    try {
+      setOtpModal(prev => ({ ...prev, loading: true, error: '' }));
+      await verifyOtp(otpModal.email, code);
+
+      // OTP verified! Now log in.
+      const data = await loginUser({
+        username: form.email,
+        password: form.password,
+      });
+
+      localStorage.setItem('parkeasy_token', data.token);
+      localStorage.setItem('parkeasy_user', JSON.stringify({
+        username: data.username,
+        name: data.name,
+        role: data.role,
+        email: form.email,
+      }));
+
+      setOtpModal({ show: false, email: '', loading: false, error: '' });
+      setSuccess(true);
+      setTimeout(() => navigate('/'), 1400);
+    } catch (err) {
+      setOtpModal(prev => ({ ...prev, loading: false, error: err.message || 'Invalid code' }));
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      setOtpModal(prev => ({ ...prev, loading: true, error: '' }));
+      await resendOtp(otpModal.email);
+      setOtpModal(prev => ({ ...prev, loading: false }));
+      alert('Code resent successfully!');
+    } catch (err) {
+      setOtpModal(prev => ({ ...prev, loading: false, error: 'Failed to resend code' }));
     }
   };
 
@@ -238,7 +288,12 @@ const Signup = () => {
 
                     {/* Terms */}
                     <label className="flex items-start gap-2.5 cursor-pointer mt-1">
-                      <input type="checkbox" required className="accent-violet-600 w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                      <input
+                        type="checkbox"
+                        required
+                        id="signup-terms"
+                        className="accent-violet-600 w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+                      />
                       <span className="text-[12px] text-gray-500">
                         I agree to the{' '}
                         <span className="text-violet-600 font-semibold hover:underline cursor-pointer">Terms of Service</span>{' '}
@@ -274,6 +329,16 @@ const Signup = () => {
           </div>
         </div>
       </div>
+
+      <OtpModal
+        show={otpModal.show}
+        email={otpModal.email}
+        loading={otpModal.loading}
+        error={otpModal.error}
+        onVerify={handleVerifyOtp}
+        onCancel={() => setOtpModal(prev => ({ ...prev, show: false }))}
+        onResend={handleResendOtp}
+      />
     </div>
   );
 };

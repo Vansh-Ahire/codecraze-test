@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FaCar, FaMapMarkerAlt, FaCalendarAlt, FaClock, FaChevronDown,
@@ -6,6 +6,8 @@ import {
   FaSync, FaArrowLeft, FaArrowRight, FaRupeeSign, FaSearch,
 } from 'react-icons/fa';
 import StatsCard from '../Components/StatsCard';
+import { getSlots, sendOtp, verifyOtp, resendOtp } from '../services/api';
+import OtpModal from '../Components/OtpModal';
 
 /* ──────────────────── constants ──────────────────── */
 const LOCATIONS = [
@@ -18,22 +20,9 @@ const LOCATIONS = [
   'Railway Station Lot',
 ];
 const FLOORS = ['Floor 1', 'Floor 2', 'Floor 3', 'Floor 4', 'Basement'];
-const DURATIONS = ['1', '2', '3', '4', '6', '8', '12', '24'];
-const RATE_PER_HOUR = 40;
-
-const generateSlots = () => {
-  const prices = [30, 40, 50, 60];
-  const rows = ['A', 'B', 'C', 'D'];
-  const cols = [1, 2, 3, 4];
-  return rows.flatMap((row) =>
-    cols.map((col) => ({
-      id: `${row}${col}`,
-      slotId: `${row}${col}`,
-      status: Math.random() > 0.4 ? 'available' : 'occupied',
-      price: prices[Math.floor(Math.random() * prices.length)],
-    }))
-  );
-};
+// durations supported by backend pricing
+const DURATIONS = ['1', '2', '4', '8', '24'];
+const PRICING = { 1: 50, 2: 90, 4: 160, 8: 280, 24: 500 };
 
 /* ──────────────────── helpers ──────────────────── */
 const SelectWrapper = ({ icon: Icon, children }) => (
@@ -69,10 +58,14 @@ const BookSlot = () => {
   /* ── availability state ── */
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
 
+  /* ── OTP state ── */
+  const [otpModal, setOtpModal] = useState({ show: false, email: '', slot: null, loading: false, error: '', code: '' });
+
   const today = new Date().toISOString().split('T')[0];
-  const totalAmount = form.duration ? parseInt(form.duration, 10) * RATE_PER_HOUR : 0;
+  const totalAmount = form.duration ? PRICING[parseInt(form.duration, 10)] || 0 : 0;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -80,32 +73,105 @@ const BookSlot = () => {
   };
 
   /* ── step 1 → 2 ── */
-  const handleFindSlots = (e) => {
+  const handleFindSlots = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    localStorage.setItem('parkeasy_booking', JSON.stringify({ ...form, totalAmount }));
-    setTimeout(() => {
-      setSlots(generateSlots());
-      setLoading(false);
+    setError('');
+
+    const token = localStorage.getItem('parkeasy_token');
+    if (!token) {
+      window.dispatchEvent(new CustomEvent('openLogin'));
+      setError('Please log in to view live slots.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      localStorage.setItem('parkeasy_booking', JSON.stringify({ ...form, totalAmount }));
+      const data = await getSlots();
+      const mapped = (data.slots || []).map((s) => ({
+        id: s.slot_number,
+        slot_number: s.slot_number,
+        slotId: `${s.row_label}${s.col_label}`,
+        status: s.status === 'free' ? 'available' : 'occupied',
+        price: Math.round((PRICING[1] || 50)), // simple per-hour display
+      }));
+      setSlots(mapped);
       setStep(2);
-    }, 800);
+    } catch (err) {
+      setError(err.message || 'Failed to load slots');
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ── refresh slots ── */
-  const refreshSlots = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setSlots(generateSlots());
+  const refreshSlots = async () => {
+    try {
+      setLoading(true);
+      const data = await getSlots();
+      const mapped = (data.slots || []).map((s) => ({
+        id: s.slot_number,
+        slot_number: s.slot_number,
+        slotId: `${s.row_label}${s.col_label}`,
+        status: s.status === 'free' ? 'available' : 'occupied',
+        price: Math.round((PRICING[1] || 50)),
+      }));
+      setSlots(mapped);
+    } catch (err) {
+      setError(err.message || 'Failed to refresh slots');
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   };
 
-  /* ── book a specific slot ── */
-  const handleBookSlot = (slot) => {
-    const booking = { ...form, totalAmount: slot.price * parseInt(form.duration || '1', 10) };
-    localStorage.setItem('parkeasy_booking', JSON.stringify(booking));
-    localStorage.setItem('parkeasy_selected_slot', JSON.stringify(slot));
-    navigate('/payment');
+  /* ── book a specific slot (trigger OTP) ── */
+  const handleBookSlot = async (slot) => {
+    const userStored = localStorage.getItem('parkeasy_user');
+    if (!userStored) {
+      window.dispatchEvent(new CustomEvent('openLogin'));
+      return;
+    }
+    const user = JSON.parse(userStored);
+
+    try {
+      setOtpModal({ ...otpModal, show: true, email: user.username, slot, loading: true, error: '', code: '' });
+      await sendOtp(user.username);
+      setOtpModal(prev => ({ ...prev, loading: false }));
+    } catch (err) {
+      setOtpModal(prev => ({ ...prev, show: false, loading: false }));
+      setError(err.message || 'Failed to send OTP');
+    }
+  };
+
+  const handleVerifyOtp = async (code) => {
+    try {
+      setOtpModal(prev => ({ ...prev, loading: true, error: '' }));
+      await verifyOtp(otpModal.email, code);
+
+      // Success! Proceed to payment
+      const durationHours = parseInt(form.duration || '1', 10);
+      const booking = {
+        ...form,
+        duration: durationHours,
+        totalAmount: PRICING[durationHours] || 0,
+      };
+      localStorage.setItem('parkeasy_booking', JSON.stringify(booking));
+      localStorage.setItem('parkeasy_selected_slot', JSON.stringify(otpModal.slot));
+      setOtpModal({ show: false, email: '', slot: null, loading: false, error: '', code: '' });
+      navigate('/payment');
+    } catch (err) {
+      setOtpModal(prev => ({ ...prev, loading: false, error: err.message || 'Invalid OTP' }));
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      setOtpModal(prev => ({ ...prev, loading: true, error: '' }));
+      await resendOtp(otpModal.email);
+      setOtpModal(prev => ({ ...prev, loading: false }));
+    } catch (err) {
+      setOtpModal(prev => ({ ...prev, loading: false, error: 'Failed to resend code' }));
+    }
   };
 
   /* ── derived ── */
@@ -140,11 +206,10 @@ const BookSlot = () => {
           {/* Step 1 */}
           <div className="flex items-center gap-2.5">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold transition-all duration-300 ${
-                step >= 1
-                  ? 'text-white shadow-md'
-                  : 'bg-gray-200 text-gray-500'
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold transition-all duration-300 ${step >= 1
+                ? 'text-white shadow-md'
+                : 'bg-gray-200 text-gray-500'
+                }`}
               style={step >= 1 ? { background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' } : {}}
             >
               {step > 1 ? <FaCheckCircle className="text-[14px]" /> : '1'}
@@ -160,7 +225,7 @@ const BookSlot = () => {
               className="h-full rounded-full transition-all duration-500 ease-out"
               style={{
                 width: step >= 2 ? '100%' : '0%',
-                background: 'linear-gradient(90deg, #7c3aed, #6d28d9)',
+                background: 'linear-gradient(90deg, #7c3aed, #4f46e5, #2563eb)',
               }}
             />
           </div>
@@ -168,11 +233,10 @@ const BookSlot = () => {
           {/* Step 2 */}
           <div className="flex items-center gap-2.5">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold transition-all duration-300 ${
-                step >= 2
-                  ? 'text-white shadow-md'
-                  : 'bg-gray-200 text-gray-500'
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold transition-all duration-300 ${step >= 2
+                ? 'text-white shadow-md'
+                : 'bg-gray-200 text-gray-500'
+                }`}
               style={step >= 2 ? { background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' } : {}}
             >
               2
@@ -192,6 +256,11 @@ const BookSlot = () => {
             <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #7c3aed, #4f46e5, #2563eb)' }} />
 
             <div className="p-8 space-y-5">
+              {error && (
+                <div className="mb-3 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-[12px] text-red-600">
+                  {error}
+                </div>
+              )}
               {/* Full Name */}
               <div>
                 <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Full Name</label>
@@ -297,7 +366,7 @@ const BookSlot = () => {
                 className="flex items-center justify-center rounded-xl py-3.5 text-white text-[15px] font-bold tracking-wide"
                 style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5, #2563eb)' }}
               >
-                Estimated: ₹{totalAmount} ({form.duration || '0'} hr × ₹{RATE_PER_HOUR}/hr)
+                Estimated: ₹{totalAmount || 0} {form.duration && `(${form.duration} hr package)`}
               </div>
 
               {/* Submit */}
@@ -339,7 +408,7 @@ const BookSlot = () => {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <FaClock className="text-violet-500 text-[11px]" />
-                  <span className="font-semibold text-gray-800">{form.duration}hr · ₹{RATE_PER_HOUR}/hr</span>
+                  <span className="font-semibold text-gray-800">{form.duration}hr · ₹{PRICING[1]}/hr</span>
                 </span>
               </div>
               <button
@@ -352,9 +421,9 @@ const BookSlot = () => {
 
             {/* Stats Row */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <StatsCard icon={<FaParking />}     label="Total Slots"  value={totalSlots}     color="purple" />
-              <StatsCard icon={<FaCheckCircle />} label="Available"    value={availableSlots} color="green"  />
-              <StatsCard icon={<FaTimesCircle />} label="Occupied"     value={occupiedSlots}  color="red"    />
+              <StatsCard icon={<FaParking />} label="Total Slots" value={totalSlots} color="purple" />
+              <StatsCard icon={<FaCheckCircle />} label="Available" value={availableSlots} color="green" />
+              <StatsCard icon={<FaTimesCircle />} label="Occupied" value={occupiedSlots} color="red" />
             </div>
 
             {/* Toolbar */}
@@ -377,11 +446,10 @@ const BookSlot = () => {
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`px-3.5 py-1.5 rounded-lg text-[13px] font-semibold capitalize transition-all duration-150 ${
-                      filter === f
-                        ? 'text-white shadow-sm'
-                        : 'text-gray-500 bg-white border border-gray-200 hover:text-violet-700 hover:border-violet-200'
-                    }`}
+                    className={`px-3.5 py-1.5 rounded-lg text-[13px] font-semibold capitalize transition-all duration-150 ${filter === f
+                      ? 'text-white shadow-sm'
+                      : 'text-gray-500 bg-white border border-gray-200 hover:text-violet-700 hover:border-violet-200'
+                      }`}
                     style={filter === f ? { background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' } : {}}
                   >
                     {f}
@@ -423,11 +491,10 @@ const BookSlot = () => {
                         <div className="flex items-center justify-between">
                           <span className="text-base">🅿️</span>
                           <span
-                            className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              isAvailable
-                                ? 'bg-emerald-600/10 text-emerald-700'
-                                : 'bg-red-600/10 text-red-700'
-                            }`}
+                            className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${isAvailable
+                              ? 'bg-emerald-600/10 text-emerald-700'
+                              : 'bg-red-600/10 text-red-700'
+                              }`}
                           >
                             {isAvailable ? <FaCheckCircle className="text-[9px]" /> : <FaTimesCircle className="text-[9px]" />}
                             {isAvailable ? 'Open' : 'Taken'}
@@ -469,6 +536,17 @@ const BookSlot = () => {
             )}
           </div>
         )}
+
+        {/* ── OTP Verification Modal ── */}
+        <OtpModal
+          show={otpModal.show}
+          email={otpModal.email}
+          loading={otpModal.loading}
+          error={otpModal.error}
+          onVerify={handleVerifyOtp}
+          onCancel={() => setOtpModal(prev => ({ ...prev, show: false }))}
+          onResend={handleResendOtp}
+        />
       </div>
     </div>
   );

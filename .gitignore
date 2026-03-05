@@ -1,0 +1,48 @@
+# Common
+node_modules/
+dist/
+dist-ssr/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.DS_Store
+**/.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Backend
+backend/.env
+backend/__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+.env/
+
+# Editor
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# AI / Temporary
+.gemini/
+.antigravity/
+test_*.py
+debug_*.py
+direct_*.py
+*_test.py
+delivery.log
+test_api_v2.py
+test_api_otp.py
+test_delivery.py
+test_final_email.py
+test_real_email.py
+debug_smtp.py
+debug_env.py
+test_email.py

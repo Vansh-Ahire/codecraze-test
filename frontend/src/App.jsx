@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-import Navbar     from './Components/Navbar';
+import Navbar from './Components/Navbar';
 import LoginModal from './Components/LoginModal';
 
-import Home        from './pages/Home';
-import BookSlot    from './pages/BookSlot';
+import Home from './pages/Home';
+import BookSlot from './pages/BookSlot';
 
-import Payment     from './pages/Payment';
-import MyBookings  from './pages/MyBookings';
-import Contact        from './pages/Contact';
-import Signup        from './pages/Signup';
+import Payment from './pages/Payment';
+import MyBookings from './pages/MyBookings';
+import Contact from './pages/Contact';
+import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminBookings from './pages/AdminBookings';
 
 function App() {
   const [loginOpen, setLoginOpen] = useState(false);
@@ -29,14 +31,18 @@ function App() {
       <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
 
       <Routes>
-        <Route path="/"             element={<Home />}         />
-        <Route path="/book"         element={<BookSlot />}     />
+        <Route path="/" element={<Home />} />
+        <Route path="/book" element={<BookSlot />} />
 
-        <Route path="/payment"      element={<Payment />}      />
-        <Route path="/bookings"     element={<MyBookings />}   />
-        <Route path="/contact"         element={<Contact />}         />
-        <Route path="/signup"          element={<Signup />}          />
+        <Route path="/payment" element={<Payment />} />
+        <Route path="/bookings" element={<MyBookings />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/bookings" element={<AdminBookings />} />
       </Routes>
     </BrowserRouter>
   );

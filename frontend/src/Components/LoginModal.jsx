@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaTimes, FaEye, FaEyeSlash } from 'react-icons/fa';
+import API, { loginUser, verifyOtp, sendOtp } from '../services/api';
+import OtpModal from './OtpModal';
 
 const LoginModal = ({ isOpen, onClose }) => {
-  const [form, setForm]               = useState({ email: '', password: '' });
-  const [showPass, setShowPass]       = useState(false);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState('');
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [otpModal, setOtpModal] = useState({ show: false, email: '', loading: false, error: '' });
 
   if (!isOpen) return null;
 
@@ -14,16 +17,69 @@ const LoginModal = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
-      await new Promise((res) => setTimeout(res, 1500));
-      localStorage.setItem('parkeasy_user', JSON.stringify({ email: form.email, name: 'ParkEasy User' }));
+      const data = await loginUser({
+        username: form.email,
+        password: form.password,
+      });
+
+      localStorage.setItem('parkeasy_token', data.token);
+      localStorage.setItem('parkeasy_user', JSON.stringify({
+        username: data.username,
+        name: data.name,
+        role: data.role,
+        email: form.email,
+      }));
+
       onClose();
       window.location.reload();
-    } catch {
-      setError('Invalid email or password. Please try again.');
+    } catch (err) {
+      setError(err.message || 'Invalid email or password. Please try again.');
+      if (err.message.includes('Account not verified')) {
+        // Show a resend button or redirect logic
+        // For simplicity, we'll let them click a "Verify Now" button in the error msg area
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (code) => {
+    try {
+      setOtpModal(prev => ({ ...prev, loading: true, error: '' }));
+      await verifyOtp(otpModal.email, code);
+
+      // OTP verified! Now log in with the form credentials
+      const data = await loginUser({
+        username: form.email,
+        password: form.password,
+      });
+
+      localStorage.setItem('parkeasy_token', data.token);
+      localStorage.setItem('parkeasy_user', JSON.stringify({
+        username: data.username,
+        name: data.name,
+        role: data.role,
+        email: form.email,
+      }));
+
+      setOtpModal({ show: false, email: '', loading: false, error: '' });
+      onClose();
+      window.location.reload();
+    } catch (err) {
+      setOtpModal(prev => ({ ...prev, loading: false, error: err.message || 'Verification failed' }));
+    }
+  };
+
+  const handleResendOtpInModal = async () => {
+    try {
+      setOtpModal(prev => ({ ...prev, loading: true, error: '' }));
+      await sendOtp(otpModal.email);
+      setOtpModal(prev => ({ ...prev, loading: false }));
+    } catch (err) {
+      setOtpModal(prev => ({ ...prev, loading: false, error: 'Failed to resend code' }));
     }
   };
 
@@ -62,6 +118,25 @@ const LoginModal = ({ isOpen, onClose }) => {
           {error && (
             <div className="mb-4 px-3.5 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-[12px] text-center">
               {error}
+              {error.includes('Account not verified') && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      await sendOtp(form.email);
+                      setOtpModal({ show: true, email: form.email, loading: false, error: '' });
+                    } catch (e) {
+                      setError('Failed to send OTP. Please try again.');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="block mx-auto mt-2 text-violet-600 font-bold hover:underline"
+                >
+                  Verify Email Now
+                </button>
+              )}
             </div>
           )}
 
@@ -126,18 +201,28 @@ const LoginModal = ({ isOpen, onClose }) => {
             </button>
           </form>
 
-            <p className="mt-5 text-center text-[12px] text-gray-400">
-              Don't have an account?{' '}
-              <Link
-                to="/signup"
-                onClick={onClose}
-                className="text-violet-600 hover:text-violet-800 font-bold transition"
-              >
-                Sign Up
-              </Link>
-            </p>
+          <p className="mt-5 text-center text-[12px] text-gray-400">
+            Don't have an account?{' '}
+            <Link
+              to="/signup"
+              onClick={onClose}
+              className="text-violet-600 hover:text-violet-800 font-bold transition"
+            >
+              Sign Up
+            </Link>
+          </p>
         </div>
       </div>
+
+      <OtpModal
+        show={otpModal.show}
+        email={otpModal.email}
+        loading={otpModal.loading}
+        error={otpModal.error}
+        onVerify={handleVerifyOtp}
+        onCancel={() => setOtpModal(prev => ({ ...prev, show: false }))}
+        onResend={handleResendOtpInModal}
+      />
     </div>
   );
 };
