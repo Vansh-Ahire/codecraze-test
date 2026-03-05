@@ -265,7 +265,7 @@ const Signup = () => {
                     Already have an account?{' '}
                     <Link to="/" className="text-violet-600 hover:text-violet-800 font-bold transition"
                       onClick={() => window.dispatchEvent(new Event('openLogin'))}>
-                      Sign In
+                      Log In
                     </Link>
                   </p>
                 </>

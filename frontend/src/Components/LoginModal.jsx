@@ -133,7 +133,7 @@ const LoginModal = ({ isOpen, onClose }) => {
                 onClick={onClose}
                 className="text-violet-600 hover:text-violet-800 font-bold transition"
               >
-                Sign Up Free
+                Sign Up
               </Link>
             </p>
         </div>

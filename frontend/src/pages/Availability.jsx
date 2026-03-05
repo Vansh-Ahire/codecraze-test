@@ -13,15 +13,18 @@ const LOCATIONS = [
 
 const FLOORS = ['Floor 1', 'Floor 2', 'Floor 3', 'Floor 4', 'Basement'];
 
-const generateSlots = (location = '', floor = '') => {
+const generateSlots = () => {
   const prices = [30, 40, 50, 60];
-  const prefix = `${location.slice(0, 2).toUpperCase() || 'P'}-${floor.replace(/\D/g, '') || '1'}`;
-  return Array.from({ length: 20 }, (_, i) => ({
-    id: i + 1,
-    slotId: `${prefix}-${String(i + 1).padStart(3, '0')}`,
-    status: Math.random() > 0.45 ? 'available' : 'occupied',
-    price: prices[Math.floor(Math.random() * prices.length)],
-  }));
+  const rows = ['A', 'B', 'C'];
+  const cols = [1, 2, 3, 4];
+  return rows.flatMap((row) =>
+    cols.map((col) => ({
+      id: `${row}${col}`,
+      slotId: `${row}${col}`,
+      status: Math.random() > 0.45 ? 'available' : 'occupied',
+      price: prices[Math.floor(Math.random() * prices.length)],
+    }))
+  );
 };
 
 const Availability = () => {
@@ -34,7 +37,7 @@ const Availability = () => {
   const loadSlots = (loc = location, flr = floor) => {
     setLoading(true);
     setTimeout(() => {
-      setSlots(generateSlots(loc, flr));
+      setSlots(generateSlots());
       setLoading(false);
     }, 600);
   };
@@ -178,7 +181,7 @@ const Availability = () => {
             <p className="text-[14px] font-semibold text-gray-500">No slots match the current filter.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {filtered.map((slot, i) => (
               <div key={slot.id} className={`animate-fade-up`} style={{ animationDelay: `${i * 0.03}s` }}>
                 <SlotCard slot={slot} />

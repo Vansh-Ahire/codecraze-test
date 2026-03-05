@@ -3,12 +3,11 @@ import { NavLink, Link } from 'react-router-dom';
 import { FaBars, FaTimes } from 'react-icons/fa';
 
 const navLinks = [
-  { to: '/',             label: 'Home' },
-  { to: '/book',         label: 'Book Slot' },
-  { to: '/availability', label: 'Availability' },
-  { to: '/payment',      label: 'Payment' },
-  { to: '/bookings',     label: 'My Bookings' },
-  { to: '/contact',      label: 'Contact' },
+  { to: '/',         label: 'Home' },
+  { to: '/book',     label: 'Book Slot' },
+  { to: '/payment',  label: 'Payment' },
+  { to: '/bookings', label: 'My Bookings' },
+  { to: '/contact',  label: 'Contact' },
 ];
 
 const Navbar = ({ onLoginClick }) => {
@@ -67,7 +66,7 @@ const Navbar = ({ onLoginClick }) => {
               id="navbar-login-btn"
               className="btn-primary text-[13.5px] px-4 py-2"
             >
-              Login
+              LogIn
             </button>
           </div>
 

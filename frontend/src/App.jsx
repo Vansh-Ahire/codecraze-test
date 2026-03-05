@@ -6,7 +6,7 @@ import LoginModal from './Components/LoginModal';
 
 import Home        from './pages/Home';
 import BookSlot    from './pages/BookSlot';
-import Availability from './pages/Availability';
+
 import Payment     from './pages/Payment';
 import MyBookings  from './pages/MyBookings';
 import Contact        from './pages/Contact';
@@ -31,7 +31,7 @@ function App() {
       <Routes>
         <Route path="/"             element={<Home />}         />
         <Route path="/book"         element={<BookSlot />}     />
-        <Route path="/availability" element={<Availability />} />
+
         <Route path="/payment"      element={<Payment />}      />
         <Route path="/bookings"     element={<MyBookings />}   />
         <Route path="/contact"         element={<Contact />}         />
