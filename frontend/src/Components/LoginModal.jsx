@@ -197,7 +197,7 @@ const LoginModal = ({ isOpen, onClose }) => {
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Signing in...
                 </>
-              ) : 'Login to ParkEasy'}
+              ) : 'Login to ParkMate'}
             </button>
           </form>
 

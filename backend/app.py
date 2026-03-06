@@ -51,7 +51,7 @@ def create_app():
 
     @app.route("/")
     def health():
-        return {"status": "AntiGravity Park API 🚀", "version": "1.0.0"}, 200
+        return {"status": "ParkMate API 🚀", "version": "1.0.0"}, 200
 
     return app
 

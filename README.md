@@ -1,4 +1,4 @@
-# AntiGravity Park - Parking Management System
+# ParkMate - Parking Management System
 
 A futuristic Parking Management System with real-time slot tracking, automated booking, and secure email OTP verification.
 

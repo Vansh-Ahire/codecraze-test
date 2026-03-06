@@ -50,8 +50,8 @@ const Navbar = ({ onLoginClick }) => {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
-          ? 'bg-white/98 backdrop-blur-xl border-b border-gray-200/80 shadow-sm'
-          : 'bg-white/90 backdrop-blur-md border-b border-transparent'
+        ? 'bg-white/98 backdrop-blur-xl border-b border-gray-200/80 shadow-sm'
+        : 'bg-white/90 backdrop-blur-md border-b border-transparent'
         }`}
     >
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
@@ -62,7 +62,7 @@ const Navbar = ({ onLoginClick }) => {
             <div className="w-8 h-8 rounded-[9px] icon-purple flex items-center justify-center shadow-sm transition-transform duration-200 group-hover:scale-105">
               <span className="text-sm">🚗</span>
             </div>
-            <span className="text-[17px] font-bold tracking-tight gradient-text">AntiGravity Park</span>
+            <span className="text-[17px] font-bold tracking-tight gradient-text">ParkMate</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -102,13 +102,23 @@ const Navbar = ({ onLoginClick }) => {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={onLoginClick}
-                id="navbar-login-btn"
-                className="btn-primary text-[13.5px] px-4 py-2"
-              >
-                LogIn
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-ghost text-[13px] px-4 py-2 !rounded-lg border border-violet-100 hover:bg-violet-50"
+                >
+                  Admin Portal
+                </Link>
+                <button
+                  onClick={onLoginClick}
+                  id="navbar-login-btn"
+                  className="btn-primary text-[13.5px] px-4 py-2"
+                >
+                  LogIn
+                </button>
+              </div>
             )}
           </div>
 
@@ -151,12 +161,23 @@ const Navbar = ({ onLoginClick }) => {
                   Logout
                 </button>
               ) : (
-                <button
-                  onClick={() => { onLoginClick(); setMenuOpen(false); }}
-                  className="w-full btn-primary py-2.5"
-                >
-                  Login
-                </button>
+                <div className="flex flex-col gap-2">
+                  <Link
+                    to="/admin"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                    className="w-full btn-ghost py-2.5 text-center border border-gray-100"
+                  >
+                    Admin Portal
+                  </Link>
+                  <button
+                    onClick={() => { onLoginClick(); setMenuOpen(false); }}
+                    className="w-full btn-primary py-2.5"
+                  >
+                    Login
+                  </button>
+                </div>
               )}
             </div>
           </div>

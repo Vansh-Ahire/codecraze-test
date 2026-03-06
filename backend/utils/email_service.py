@@ -7,12 +7,12 @@ class EmailService:
     @staticmethod
     def send_otp_email(recipient_email, otp):
         """Sends an OTP email. Falls back to console log if no credentials."""
-        subject = "Your AntiGravity Park OTP Verification Code"
+        subject = "Your ParkMate OTP Verification Code"
         body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #7c3aed; text-align: center;">🛡️ AntiGravity Park Security</h2>
+                <h2 style="color: #7c3aed; text-align: center;">🛡️ ParkMate Security</h2>
                 <p>Hello,</p>
                 <p>To ensure the security of our platform and reduce unauthorized traffic, we require you to verify your booking with the following One-Time Password (OTP):</p>
                 
@@ -23,7 +23,7 @@ class EmailService:
                 <p>This code will expire in 10 minutes. Please enter it on the booking page to proceed.</p>
                 <p>If you did not request this code, please ignore this email.</p>
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 12px; color: #888; text-align: center;">&copy; 2024 AntiGravity Park. All rights reserved.</p>
+                <p style="font-size: 12px; color: #888; text-align: center;">&copy; 2024 ParkMate. All rights reserved.</p>
             </div>
         </body>
         </html>
