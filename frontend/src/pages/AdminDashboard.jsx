@@ -16,7 +16,7 @@ const AdminDashboard = () => {
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('parkeasy_user') || '{}');
         if (user.role !== 'admin') {
-            window.location.href = '/';
+            window.location.href = '/admin-login';
             return;
         }
         fetchData();

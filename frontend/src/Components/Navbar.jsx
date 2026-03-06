@@ -104,7 +104,7 @@ const Navbar = ({ onLoginClick }) => {
             ) : (
               <div className="flex items-center gap-2">
                 <Link
-                  to="/admin"
+                  to="/admin-login"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-ghost text-[13px] px-4 py-2 !rounded-lg border border-violet-100 hover:bg-violet-50"
