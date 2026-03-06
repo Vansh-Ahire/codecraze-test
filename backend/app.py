@@ -14,18 +14,17 @@ def create_app():
     app.config.from_object(Config)
 
     # Init extensions
-    mongo.init_app(app)
+    try:
+        mongo.init_app(app)
+        print("[App] MongoDB initialized successfully")
+    except Exception as e:
+        print(f"[App] MongoDB init FAILED: {e}")
+        # We don't crash here, let the health check work if possible
+        
     jwt.init_app(app)
     cors.init_app(app, resources={
         r"/api/*": {
-            "origins": [
-                "http://localhost:5173", 
-                "http://localhost:5174",
-                "http://127.0.0.1:5173",
-                "http://127.0.0.1:5174",
-                "http://192.168.71.12:5173",
-                "http://192.168.71.12:5174"
-            ],
+            "origins": "*",  # For production, we'll start permissive and then restrict
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "expose_headers": ["Content-Disposition"],
@@ -44,8 +43,11 @@ def create_app():
 
     # Auto-seed on first run
     with app.app_context():
-        from utils.seeder import seed_database
-        seed_database()
+        try:
+            from utils.seeder import seed_database
+            seed_database()
+        except Exception as e:
+            print(f"[App] Seeding skipped/failed: {e}")
 
     @app.route("/")
     def health():
