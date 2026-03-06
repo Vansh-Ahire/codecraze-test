@@ -150,6 +150,34 @@ def admin_cancel_booking(booking_id):
     return jsonify({"message": f"Booking {booking_id} cancelled by admin"}), 200
 
 
+@admin_bp.route("/bookings/complete/<booking_id>", methods=["POST"], strict_slashes=False)
+@jwt_required()
+def admin_complete_booking(booking_id):
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    booking = mongo.db.bookings.find_one({"booking_id": booking_id})
+    if not booking:
+        return jsonify({"error": "Booking not found"}), 404
+
+    if booking["status"] == "completed":
+        return jsonify({"message": "Booking is already completed"}), 200
+
+    # Complete booking
+    mongo.db.bookings.update_one(
+        {"booking_id": booking_id},
+        {"$set": {"status": "completed", "updated_at": datetime.utcnow().isoformat()}}
+    )
+
+    # Free the slot
+    mongo.db.slots.update_one(
+        {"slot_number": booking["slot_number"]},
+        {"$set": {"status": "free", "user": None}}
+    )
+
+    return jsonify({"message": f"Booking {booking_id} marked as completed"}), 200
+
+
 @admin_bp.route("/slots/toggle/<int:slot_num>", methods=["POST"], strict_slashes=False)
 @jwt_required()
 def toggle_slot_status(slot_num):

@@ -71,6 +71,7 @@ export const getAdminStats = () => API.get('/admin/stats');
 export const getAdminBookings = () => API.get('/admin/bookings');
 export const getAdminUsers = () => API.get('/admin/users');
 export const adminCancelBooking = (id) => API.post(`/admin/bookings/cancel/${id}`);
+export const adminCompleteBooking = (id) => API.post(`/admin/bookings/complete/${id}`);
 export const toggleSlotStatus = (num) => API.post(`/admin/slots/toggle/${num}`);
 export const exportAdminReport = () => API.get('/admin/export/excel', { responseType: 'blob' });
 
