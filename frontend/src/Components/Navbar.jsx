@@ -163,7 +163,7 @@ const Navbar = ({ onLoginClick }) => {
               ) : (
                 <div className="flex flex-col gap-2">
                   <Link
-                    to="/admin"
+                    to="/admin-login"
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setMenuOpen(false)}
